@@ -1,0 +1,1 @@
+Data Source=JON;User ID=enterprise;password=entx!2003n;Database=enterpriseoffice;Persist Security Info=True;Connect Timeout=200|POWERSOFT|DEFAULT|DEFAULT
