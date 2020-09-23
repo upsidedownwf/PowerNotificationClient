@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,24 +25,55 @@ namespace PowerNotificationClient
                     tasks.Add(Task.Run(() => AddDetail(row)));
                 }
                 await Task.WhenAll(tasks);
-                List<Task<Tuple<DataTable, int>>> task2 = new List<Task<Tuple<DataTable, int>>>();
+                List<Task<DataTable>> task2 = new List<Task<DataTable>>();
+                var NotifyLicenses = new List<CompanyLicensing>();
                 foreach (var renewal in details)
                 {
-                    task2.Add(DataAccess.GetLicenses(renewal.Days));
-                }
-                var licenses = await Task.WhenAll(task2);
+                    var licenses = await DataAccess.GetLicenses(renewal.Days);
+                    await Task.Run(() => Parallel.ForEach(licenses.AsEnumerable(), (singlelicense) =>
+                      {
+                          var license = new CompanyLicensing();
+                          license.CustomerId = singlelicense["CustomerID"].ToString();
+                          license.LicenseStartDate = (DateTime)singlelicense["LicenseEndDate"];
+                          license.LicenseEndDate = (DateTime)singlelicense["LicenseEndDate"];
+                          license.LicensedCompanyName = singlelicense["LicensedCompanyName"].ToString();
+                          license.LicensedItem = singlelicense["LicensedItem"].ToString();
+                          license.RegCode = singlelicense["RegCode"].ToString();
+                          license.Days = renewal.Days;
+                          NotifyLicenses.Add(license);
+                          Task.Run(() => Parallel.ForEach(NotifyLicenses, (notifylicense) =>
+                          {
+                              if (license != null)
+                              {
+                                  var customer = DataAccess.GetCustomerToNotifyAsync(notifylicense.CustomerId).GetAwaiter().GetResult();
+                                  var company = DataAccess.GetCompany();
+                                  if (customer.Rows.Count > 0)
+                                  {
+                                      if ((bool)customer.Rows[0]["EmailAlert"] == true)
+                                      {
+                                          var item = DataAccess.GetItem(license.LicensedItem);
+                                          string address = company.Rows?[0]["CompanyAddress1"] + ", " + company.Rows?[0]["CompanyCity"] + ", " + company.Rows?[0]["CompanyState"] +
+                                          ", " + company.Rows?[0]["CompanyCountry"];
+                                          string subject = "notify";
+                                          string body = "Renew Abeg";
 
-                await Task.Run(() => Parallel.ForEach(licenses, (license) =>
-                {
-                    Parallel.ForEach(license.Item1.Rows.Cast<DataRow>(), (notifylicense) =>
-                    {
-                        var customer = DataAccess.GetCustomerToNotify(notifylicense["CustomerID"].ToString());
-                        if (customer.Rows.Count > 0)
-                        {
-                            DataAccess.SendNoticationMail(customer.Rows[0], notifylicense, license.Item2);
-                        }
-                    });
-                }));
+                                          string path = Path.Combine(@"Setup/HtmlEmailTemplate.html");
+                                          string FileContent = File.ReadAllText(path);
+                                          string text = FileContent.Replace("{body}", body);
+                                          text = text.Replace("{url}", "http://www.powersoft-solutions.org");
+                                          text = text.Replace("{address}", address);
+                                          text = text.Replace("'", "''");
+                                          text = text.Replace("{phone}", company.Rows?[0]["CompanyPhone"].ToString());
+                                          text = text.Replace("{email}", company.Rows?[0]["CompanyEmail"].ToString());
+                                          text = text.Replace("{Date}", DateTime.Now.Year.ToString());
+                                          DataAccess.SendNoticationMailAsync(subject, text, customer.Rows?[0]["CustomerEmail"].ToString()).GetAwaiter().GetResult();
+                                      }
+                                  }
+                              }
+                          })).GetAwaiter().GetResult();
+                      }));
+                    ;
+                }
                 status.status = "Success";
                 status.message = "Success";
             }

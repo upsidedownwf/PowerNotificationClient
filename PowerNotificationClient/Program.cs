@@ -14,6 +14,7 @@ namespace PowerNotificationClient
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("********************************************************************");
             Console.WriteLine("WELCOME TO POWERNOTIFICATIONCLIENT " + DateTime.Now);
+            Console.WriteLine("********************************************************************");
             Console.WriteLine();
             var watch = new Stopwatch();
             watch.Start();

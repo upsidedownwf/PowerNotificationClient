@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PowerNotificationClient.HelperModels;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -27,7 +28,7 @@ namespace PowerNotificationClient
         private static readonly string DepartmentID = FileContentArray[3];
         private static string query = string.Empty;
 
-        public static DataTable ReturnDataTable(string query)
+        private static DataTable ReturnDataTable(string query)
         {
             using (conn = new SqlConnection(_conn))
             {
@@ -41,7 +42,7 @@ namespace PowerNotificationClient
             }
         }
 
-        public static SqlDataReader ReturnDataReader(string query)
+        private static SqlDataReader ReturnDataReader(string query)
         {
             using (conn = new SqlConnection(_conn))
             {
@@ -53,7 +54,7 @@ namespace PowerNotificationClient
                 }
             }
         }
-        public static void SqlQuery(string query)
+        private static void SqlQuery(string query)
         {
             using (conn = new SqlConnection(_conn))
             {
@@ -68,29 +69,29 @@ namespace PowerNotificationClient
         {
             try
             {
-                 query = "Select * from NotificationSetupDetail where CompanyID='"+ CompanyID +"' and DivisionID='"+ DivisionID +
-                    "' and DepartmentID='" + DepartmentID + "' and NotificationType='Renewal'";
+                query = "Select * from NotificationSetupDetail where CompanyID='" + CompanyID + "' and DivisionID='" + DivisionID +
+                   "' and DepartmentID='" + DepartmentID + "' and NotificationType='Renewal'";
             }
             catch (Exception ex)
             {
 
             }
-            return await Task.Run(()=>ReturnDataTable(query));
+            return await Task.Run(() => ReturnDataTable(query));
         }
-        public static async Task<Tuple<DataTable,int>> GetLicenses(int days)
+        public static async Task<DataTable> GetLicenses(int days)
         {
             try
             {
                 query = "Select * from CompanyLicensing where CompanyID='" + CompanyID + "' and DivisionID='" + DivisionID +
-                    "' and DepartmentID='" + DepartmentID + "' and Active=Cast(1 as bit) and DATEDIFF(DAY,GetDate(), LicenseEndDate)= Cast(" + days + " as int)";
+                    "' and DepartmentID='" + DepartmentID + "' and Active=Cast(1 as bit) and (DATEDIFF(DAY,GetDate(), LicenseEndDate)+1)= Cast(" + days + " as int)";
             }
             catch (Exception ex)
             {
 
             }
-            return Tuple.Create(await Task.Run(() => ReturnDataTable(query)), days);
+            return await Task.Run(() => ReturnDataTable(query));
         }
-        public static DataTable GetCustomerToNotify(string customerId)
+        public static async Task<DataTable> GetCustomerToNotifyAsync(string customerId)
         {
             try
             {
@@ -101,22 +102,46 @@ namespace PowerNotificationClient
             {
 
             }
-            return ReturnDataTable(query);
+            return await Task.Run(() => ReturnDataTable(query));
         }
-        public static void SendNoticationMail(DataRow customer, DataRow license, int days)
+        public static async Task SendNoticationMailAsync(string subject, string body, string customeremail)
         {
-            string subject = "wwww";
-            string body = "xxxxxx";
             try
             {
-                query = "Insert into _Mail_Send(Counter,SenderID, Recipient, Subject, Body, Attachment, CompanyID, DivisionID, DepartmentID) Values((select Top(1)Counter+1 from _mail_send order by Counter desc),'email@powersoft-solutions.org'," +
-                    "'" + customer["CustomerEmail"].ToString() + "', '" + subject + "', '" + body + "', null, '" + CompanyID + "', '" + DivisionID + "', '" + DepartmentID + "')";
+                query = "Insert into _Mail_Send(SenderID, Recipient, Subject, Body, Attachment, CompanyID, DivisionID, DepartmentID) Values('email@powersoft-solutions.org'," +
+                    "'" + customeremail + "', '" + subject + "', '" + body + "', null, '" + CompanyID + "', '" + DivisionID + "', '" + DepartmentID + "')";
             }
             catch (Exception ex)
             {
 
             }
-            SqlQuery(query);
+            await Task.Run(() => SqlQuery(query));
+        }
+        public static DataTable GetCompany()
+        {
+            try
+            {
+                query = "Select * from Companies where  CompanyID='" + CompanyID + "' and DivisionID='" + DivisionID +
+                    "' and DepartmentID='" + DepartmentID + "'";
+            }
+            catch (Exception ex)
+            {
+
+            }
+            return ReturnDataTable(query);
+        }
+        public static DataTable GetItem(string LicensedItem)
+        {
+            try
+            {
+                query = "Select * from InventoryItems where  CompanyID='" + CompanyID + "' and DivisionID='" + DivisionID +
+                    "' and DepartmentID='" + DepartmentID + "' and ItemID='" + LicensedItem + "'";
+            }
+            catch (Exception ex)
+            {
+
+            }
+            return ReturnDataTable(query);
         }
     }
 }
