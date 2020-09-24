@@ -15,7 +15,6 @@ namespace PowerNotificationClient
         public async Task<StatusMessage> SendNotificationasync()
         {
             StatusMessage status = new StatusMessage();
-            //var details = new List<RenewalNotificationDetails>();
             try
             {
                 var renewaldetails = await DataAccess.GetNotificationDetailsAsync();
