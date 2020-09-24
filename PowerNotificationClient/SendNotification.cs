@@ -25,67 +25,51 @@ namespace PowerNotificationClient
                     tasks.Add(Task.Run(() => AddDetail(row)));
                 }
                 await Task.WhenAll(tasks);
-                var NotifyLicenses = new List<CompanyLicensing>();
                 foreach (var renewal in details)
                 {
                     var licenses = await DataAccess.GetLicenses(renewal.Days);
                     await Task.Run(() => Parallel.ForEach(licenses.AsEnumerable(), (singlelicense) =>
                       {
-                          var license = new CompanyLicensing();
-                          license.CustomerId = singlelicense["CustomerID"].ToString();
-                          license.LicenseStartDate = (DateTime)singlelicense["LicenseEndDate"];
-                          license.LicenseEndDate = (DateTime)singlelicense["LicenseEndDate"];
-                          license.LicensedCompanyName = singlelicense["LicensedCompanyName"].ToString();
-                          license.LicensedItem = singlelicense["LicensedItem"].ToString();
-                          license.RegCode = singlelicense["RegCode"].ToString();
-                          license.Days = renewal.Days;
-                          NotifyLicenses.Add(license);
-                          Task.Run(() => Parallel.ForEach(NotifyLicenses, (notifylicense) =>
+                          var customer = DataAccess.GetCustomerToNotifyAsync(singlelicense["CustomerID"].ToString()).GetAwaiter().GetResult();
+                          var company = DataAccess.GetCompany();
+                          var item = DataAccess.GetItem(singlelicense["LicensedItem"].ToString());
+                          if (customer.Rows.Count > 0)
                           {
-                          if (license != null)
-                          {
-                              var customer = DataAccess.GetCustomerToNotifyAsync(notifylicense.CustomerId).GetAwaiter().GetResult();
-                              var company = DataAccess.GetCompany();
-                              var item = DataAccess.GetItem(license.LicensedItem);
-                              if (customer.Rows.Count > 0)
+                              var task1 = Task.Run(() =>
                               {
-                                  var task1 = Task.Run(() =>
+                                  if ((bool)customer.Rows[0]["EmailAlert"] == true)
                                   {
-                                      if ((bool)customer.Rows[0]["EmailAlert"] == true)
-                                      {
-                                          string address = company.Rows?[0]["CompanyAddress1"] + ", " + company.Rows?[0]["CompanyCity"] + ", " + company.Rows?[0]["CompanyState"] +
-                                          ", " + company.Rows?[0]["CompanyCountry"];
-                                          string subject = "Renewal Notification: " + item.Rows?[0]["ItemName"] + " - " + license.Days + " Days Notice";
-                                          string body = "<div><p> Dear " + customer.Rows?[0]["CustomerName"] + ",</p> <br/></br/> <p> This is to notify you that your license for " + item.Rows?[0]["ItemName"] +
-                                          " would be expiring in " + license.Days + " days." +
-                                          "<br/><br/><p> You can renew on your dashboard on our website or contact us at " + company.Rows?[0]["CompanyEmail"].ToString() + " for more info.</p><br/><br/><p>Thanks.</p></div>";
-                                          string path = Path.Combine(@"Setup/HtmlEmailTemplate.html");
-                                          string FileContent = File.ReadAllText(path);
-                                          string text = FileContent.Replace("{body}", body);
-                                          text = text.Replace("{url}", "http://www.powersoft-solutions.org");
-                                          text = text.Replace("{address}", address);
-                                          text = text.Replace("'", "''");
-                                          text = text.Replace("{phone}", company.Rows?[0]["CompanyPhone"].ToString());
-                                          text = text.Replace("{email}", company.Rows?[0]["CompanyEmail"].ToString());
-                                          text = text.Replace("{Date}", DateTime.Now.Year.ToString());
-                                          DataAccess.SendNoticationMailAsync(subject, text, customer.Rows?[0]["CustomerEmail"].ToString()).GetAwaiter().GetResult();
-                                      }
-                                  });
-                                      var task2 = Task.Run(() =>
-                                      {
-                                          if ((bool)customer.Rows[0]["SMSAlert"] == true)
-                                          {
-                                              var webparameters = DataAccess.GetWebParameters();
-                                              string body = "Renewal Notification: " + item.Rows?[0]["ItemName"] + " - " + license.Days + " Days Notice. Dear " + customer.Rows?[0]["CustomerName"] + ", This is to notify you that your license for " + item.Rows?[0]["ItemName"] +
-                                              " would be expiring in " + license.Days + " days." +
-                                              "You can renew on your dashboard on our website or contact us at " + company.Rows?[0]["CompanyEmail"].ToString() + " for more info.";
-                                              DataAccess.sendSMSAsync(body, webparameters.Rows?[0]["SMSGatewayURL"].ToString(), webparameters.Rows?[0]["TextUserName"].ToString(), webparameters.Rows?[0]["TextPassword"].ToString(), customer.Rows?[0]["CustomerPhone"].ToString()).GetAwaiter().GetResult();
-                                          }
-                                      });
-                                      Task.WhenAll(task1, task2).GetAwaiter().GetResult();
+                                      string address = company.Rows?[0]["CompanyAddress1"] + ", " + company.Rows?[0]["CompanyCity"] + ", " + company.Rows?[0]["CompanyState"] +
+                                      ", " + company.Rows?[0]["CompanyCountry"];
+                                      string subject = "Renewal Notification: " + item.Rows?[0]["ItemName"] + " - " + renewal.Days + " Days Notice";
+                                      string body = "<div><p> Dear " + customer.Rows?[0]["CustomerName"] + ",</p> <br/></br/> <p> This is to notify you that your license for " + item.Rows?[0]["ItemName"] +
+                                      " would be expiring in " + renewal.Days + " days." +
+                                      "<br/><br/><p> You can renew on your dashboard on our website or contact us at " + company.Rows?[0]["CompanyEmail"].ToString() + " for more info.</p><br/><br/><p>Thanks.</p></div>";
+                                      string path = Path.Combine(@"Setup/HtmlEmailTemplate.html");
+                                      string FileContent = File.ReadAllText(path);
+                                      string text = FileContent.Replace("{body}", body);
+                                      text = text.Replace("{url}", "http://www.powersoft-solutions.org");
+                                      text = text.Replace("{address}", address);
+                                      text = text.Replace("'", "''");
+                                      text = text.Replace("{phone}", company.Rows?[0]["CompanyPhone"].ToString());
+                                      text = text.Replace("{email}", company.Rows?[0]["CompanyEmail"].ToString());
+                                      text = text.Replace("{Date}", DateTime.Now.Year.ToString());
+                                      DataAccess.SendNoticationMailAsync(subject, text, customer.Rows?[0]["CustomerEmail"].ToString()).GetAwaiter().GetResult();
                                   }
-                              }
-                          })).GetAwaiter().GetResult();
+                              });
+                              var task2 = Task.Run(() =>
+                              {
+                                  if ((bool)customer.Rows[0]["SMSAlert"] == true)
+                                  {
+                                      var webparameters = DataAccess.GetWebParameters();
+                                      string body = "Renewal Notification: " + item.Rows?[0]["ItemName"] + " - " + renewal.Days + " Days Notice. Dear " + customer.Rows?[0]["CustomerName"] + ", This is to notify you that your license for " + item.Rows?[0]["ItemName"] +
+                                      " would be expiring in " + renewal.Days + " days." +
+                                      "You can renew on your dashboard on our website or contact us at " + company.Rows?[0]["CompanyEmail"].ToString() + " for more info.";
+                                      DataAccess.sendSMSAsync(body, webparameters.Rows?[0]["SMSGatewayURL"].ToString(), webparameters.Rows?[0]["TextUserName"].ToString(), webparameters.Rows?[0]["TextPassword"].ToString(), customer.Rows?[0]["CustomerPhone"].ToString()).GetAwaiter().GetResult();
+                                  }
+                              });
+                              Task.WhenAll(task1, task2).GetAwaiter().GetResult();
+                          }
                       }));
                 }
                 status.status = "Success";

@@ -166,6 +166,7 @@ DocProject/Help/html
 
 # Click-Once directory
 publish/
+PowerNotificationClient/Setup
 
 # Publish Web Output
 *.[Pp]ublish.xml

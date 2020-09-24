@@ -86,7 +86,7 @@ namespace PowerNotificationClient
             try
             {
                 query = "Select * from CompanyLicensing where CompanyID='" + CompanyID + "' and DivisionID='" + DivisionID +
-                    "' and DepartmentID='" + DepartmentID + "' and Active=Cast(1 as bit) and (DATEDIFF(DAY,GetDate(), LicenseEndDate)+2)= Cast(" + days + " as int)";
+                    "' and DepartmentID='" + DepartmentID + "' and Active=Cast(1 as bit) and DATEDIFF(DAY,GetDate(), LicenseEndDate= Cast(" + days + " as int)";
             }
             catch (Exception ex)
             {
@@ -169,8 +169,6 @@ namespace PowerNotificationClient
                 var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
                 var data = await response.Content.ReadAsStringAsync();
-                //var ss = new WebClient();
-                //var re= ss.DownloadString(uri).Trim('"');
                 Console.WriteLine(data);
             }
             catch (Exception ex)
