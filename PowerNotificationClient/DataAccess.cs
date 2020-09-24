@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.IO;
-using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace PowerNotificationClient
 {
@@ -27,6 +29,7 @@ namespace PowerNotificationClient
         private static readonly string DivisionID = FileContentArray[2];
         private static readonly string DepartmentID = FileContentArray[3];
         private static string query = string.Empty;
+        private static HttpClient client;
 
         private static DataTable ReturnDataTable(string query)
         {
@@ -83,7 +86,7 @@ namespace PowerNotificationClient
             try
             {
                 query = "Select * from CompanyLicensing where CompanyID='" + CompanyID + "' and DivisionID='" + DivisionID +
-                    "' and DepartmentID='" + DepartmentID + "' and Active=Cast(1 as bit) and (DATEDIFF(DAY,GetDate(), LicenseEndDate)+1)= Cast(" + days + " as int)";
+                    "' and DepartmentID='" + DepartmentID + "' and Active=Cast(1 as bit) and (DATEDIFF(DAY,GetDate(), LicenseEndDate)+2)= Cast(" + days + " as int)";
             }
             catch (Exception ex)
             {
@@ -130,6 +133,19 @@ namespace PowerNotificationClient
             }
             return ReturnDataTable(query);
         }
+        public static DataTable GetWebParameters()
+        {
+            try
+            {
+                query = "Select * from WebParameters where  CompanyID='" + CompanyID + "' and DivisionID='" + DivisionID +
+                    "' and DepartmentID='" + DepartmentID + "'";
+            }
+            catch (Exception ex)
+            {
+
+            }
+            return ReturnDataTable(query);
+        }
         public static DataTable GetItem(string LicensedItem)
         {
             try
@@ -142,6 +158,25 @@ namespace PowerNotificationClient
 
             }
             return ReturnDataTable(query);
+        }
+        public static async Task sendSMSAsync(string vmessage, string SMSGatewayURL, string TextUserName, string TextPassword, string CustomerPhone)
+        {
+            try
+            {
+                var uri = SMSGatewayURL + "?onweremail=" + TextUserName + "&subacctpwd=" + TextPassword + "&message=" + vmessage + "&sender=" + CompanyID + "&sendto=" + CustomerPhone + "&msgtype=0 ";
+
+                client = new HttpClient();
+                var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+                var data = await response.Content.ReadAsStringAsync();
+                //var ss = new WebClient();
+                //var re= ss.DownloadString(uri).Trim('"');
+                Console.WriteLine(data);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
         }
     }
 }
